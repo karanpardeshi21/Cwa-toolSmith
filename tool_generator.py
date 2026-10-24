@@ -6,10 +6,20 @@ from typing import Any, Callable
 from groq_client import generate_with_groq
 
 
+
 def _make_tool_name(task: str) -> str:
     """Convert a task description into a readable tool name."""
     words = re.findall(r"[a-zA-Z0-9]+", task.lower())
-    name = "_".join(words[:5])
+
+    stop_words = {
+        "create", "make", "build", "write", "develop",
+        "a", "an", "the", "that", "which", "to", "for",
+        "please", "python", "tool", "tools",
+    }
+
+    keywords = [word for word in words if word not in stop_words]
+    name = "_".join(keywords[:4])
+
     return f"{name or 'generated'}_tool"
 
 
@@ -30,19 +40,23 @@ Return ONLY a valid JSON object with these keys:
 - capabilities: list of strings
 
 Requirements:
-1. The generated source must define run(inputs: dict) -> dict.
-2. Do not include API calls, file-system access, shell commands,
-   network access, or dynamic code execution unless explicitly
-   approved by the application's safety policy.
-3. Keep the implementation focused on the requested task.
-4. Tests must use this exact structure:
+
+1. The generated source must define exactly:
+   def run(input_data: dict) -> dict:
+2. Use the built-in dict type in the function signature.
+   Do not use Dict, Any, or other type aliases for this signature.
+3. The run function must return a dictionary.
+4. Each test's "input" dictionary must be passed to run(input_data).
+5. Each test's "expected" dictionary must match the returned result.
+6. Include at least two meaningful test cases.
+7. Tests must use this exact structure:
    {{"input": {{"ids": [1, 2, 2, 3]}},
      "expected": {{"duplicates": [2]}}}}
-5. Expected outputs must describe the intended behavior independently
+8. Expected outputs must describe the intended behavior independently
    of executing the generated code.
-6. Include at least two meaningful test cases where practical.
-7. Do not claim that tests passed. Testing is handled separately.
-8. Return JSON only, without Markdown fences.
+9. Include at least two meaningful test cases where practical.
+10. Do not claim that tests passed. Testing is handled separately.
+11. Return JSON only, without Markdown fences.
 """.strip()
 
 
