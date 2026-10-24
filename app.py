@@ -21,6 +21,7 @@ DEFAULTS = {
     "agent_result": None,
     "search_tools": "",
     "activity": [],
+    "runs": 0,
 }
 
 for key, value in DEFAULTS.items():
@@ -29,130 +30,249 @@ for key, value in DEFAULTS.items():
 
 
 # -----------------------------
-# Styling
+# Styling  (palette: ink / ember / rose / steel)
 # -----------------------------
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    :root {
+        --ink: #080b16;
+        --surface: #10152a;
+        --surface-2: #161c36;
+        --line: #232b4a;
+        --text: #eceffa;
+        --muted: #8f99ba;
+        --ember: #ff7a45;
+        --rose: #ff3d8b;
+        --steel: #6a93ff;
+        --ok: #39d98a;
+        --bad: #ff5a6a;
+        --forge: linear-gradient(100deg, #ff9a4d 0%, #ff4f7b 55%, #c04bff 100%);
+    }
+
+    html, body, [class*="css"], .stApp {
+        font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
     }
     #MainMenu, footer { visibility: hidden; }
-    [data-testid="stAppViewContainer"] {
+
+    /* ---------- canvas ---------- */
+    [data-testid="stAppViewContainer"], .stApp {
         background:
-            radial-gradient(ellipse at 88% 3%, rgba(190, 205, 255, .32), transparent 32%),
-            #f5f7fc;
+            radial-gradient(900px 480px at 92% -8%, rgba(255, 90, 90, .20), transparent 60%),
+            radial-gradient(800px 520px at -5% 12%, rgba(106, 147, 255, .16), transparent 60%),
+            linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px) 0 0 / 44px 44px,
+            linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px) 0 0 / 44px 44px,
+            var(--ink);
     }
     [data-testid="stHeader"] { background: transparent; }
     .block-container {
-        max-width: 1450px;
-        padding: 2rem clamp(1rem, 3vw, 2.5rem) 3rem;
+        max-width: 1280px;
+        padding: 2.4rem clamp(1rem, 3vw, 2.5rem) 3rem;
     }
+    h1, h2, h3, h4, h5, p, label, span, li, div { color: inherit; }
+    h2, h3, h4 { font-weight: 600; letter-spacing: -.02em; }
+    hr { border-color: var(--line) !important; }
+
+    /* ---------- sidebar ---------- */
     [data-testid="stSidebar"] {
-        background: #fff;
-        border-right: 1px solid #e8ebf4;
+        background: linear-gradient(180deg, #0c1022 0%, #090c1a 100%);
+        border-right: 1px solid var(--line);
     }
-    [data-testid="stSidebar"] > div { padding-top: 1.4rem; }
-    .brand {
-        font-size: 1.55rem;
-        font-weight: 800;
-        letter-spacing: -.8px;
-        color: #111528;
-        padding: .3rem .4rem 1.6rem;
+    [data-testid="stSidebar"] > div { padding-top: 1.3rem; }
+    .brand { display: flex; align-items: center; gap: .7rem; padding: .2rem .3rem 1.2rem; }
+    .brand-mark {
+        width: 38px; height: 38px; border-radius: 11px;
+        display: grid; place-items: center;
+        background: var(--forge);
+        color: #fff; font-size: 1.15rem;
+        box-shadow: 0 0 24px rgba(255, 79, 123, .45);
     }
-    .brand-mark { color: #6544ed; margin-right: .45rem; }
-    .eyebrow {
-        color: #6d73a1;
-        text-transform: uppercase;
-        letter-spacing: .14em;
-        font-size: .72rem;
-        font-weight: 700;
+    .brand-name { font-size: 1.35rem; font-weight: 700; letter-spacing: -.04em; color: var(--text); }
+    .brand-sub { font-size: .8rem; color: var(--muted); margin-top: -.15rem; }
+
+    [data-testid="stSidebar"] [data-testid="stRadio"] > div { gap: .25rem; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label {
+        padding: .65rem .85rem;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        width: 100%;
+        cursor: pointer;
+        transition: background .15s, border-color .15s;
     }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child { display: none; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label p { font-weight: 500; color: var(--muted); }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background: rgba(255,255,255,.04); }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+        background: linear-gradient(100deg, rgba(255,122,69,.16), rgba(255,61,139,.12));
+        border-color: rgba(255, 106, 106, .38);
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p { color: var(--text); font-weight: 600; }
+    .side-stat {
+        margin-top: .4rem; padding: .9rem 1rem;
+        border: 1px solid var(--line); border-radius: 14px;
+        background: rgba(255,255,255,.025);
+    }
+    .side-stat b { font-size: 1.6rem; letter-spacing: -.04em; color: var(--text); }
+    .side-stat span { display: block; font-size: .82rem; color: var(--muted); }
+
+    /* ---------- type ---------- */
     .hero {
-        font-size: clamp(2.25rem, 4vw, 3.65rem);
-        line-height: 1.05;
-        letter-spacing: -.055em;
-        font-weight: 800;
-        color: #101322;
-        margin: .65rem 0 .85rem;
-    }
-    .gradient {
-        background: linear-gradient(95deg, #6c36ec, #3988f5);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-    }
-    .subtitle {
-        max-width: 760px;
-        color: #747d91;
-        font-size: 1rem;
-        line-height: 1.65;
-        margin-bottom: 1.5rem;
-    }
-    .panel {
-        background: rgba(255,255,255,.92);
-        border: 1px solid #e7eaf3;
-        border-radius: 20px;
-        padding: 1.2rem;
-        box-shadow: 0 10px 32px rgba(32, 48, 91, .045);
-    }
-    .panel-title {
-        font-size: 1.1rem;
-        font-weight: 750;
-        letter-spacing: -.025em;
-        color: #171a2b;
-        margin-bottom: .8rem;
-    }
-    .muted { color: #7c8497; font-size: .88rem; }
-    .metric {
-        border: 1px solid #e6e9f5;
-        background: linear-gradient(145deg, #e9ebff, #fff);
-        border-radius: 20px;
-        padding: 1.35rem;
-        min-height: 150px;
-    }
-    .metric-number {
-        font-size: 2.15rem;
-        font-weight: 800;
+        font-size: clamp(2.4rem, 4.8vw, 4.1rem);
+        line-height: 1.02;
         letter-spacing: -.05em;
-        color: #202750;
-        margin-top: .5rem;
+        font-weight: 700;
+        margin: .2rem 0 .9rem;
+        background: linear-gradient(180deg, #ffffff 30%, #aab4da 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
     }
+    .hero.small { font-size: clamp(2rem, 3.6vw, 3rem); }
+    .subtitle { max-width: 640px; color: var(--muted); font-size: 1.04rem; line-height: 1.6; margin-bottom: 1.6rem; }
+    .muted { color: var(--muted); font-size: .88rem; }
+
+    /* ---------- cards ---------- */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: linear-gradient(160deg, rgba(24,30,56,.85), rgba(14,18,36,.85));
+        border: 1px solid var(--line) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 18px 50px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+        backdrop-filter: blur(6px);
+    }
+    .st-key-composer [data-testid="stVerticalBlockBorderWrapper"],
+    .st-key-composer {
+        border-radius: 22px;
+    }
+    .st-key-composer > [data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid transparent !important;
+        background:
+            linear-gradient(#10152a, #10152a) padding-box,
+            var(--forge) border-box;
+        box-shadow: 0 0 60px rgba(255, 79, 123, .13), 0 18px 50px rgba(0,0,0,.4);
+    }
+
+    .stat {
+        border: 1px solid var(--line); border-radius: 18px;
+        background: linear-gradient(160deg, rgba(24,30,56,.85), rgba(14,18,36,.85));
+        padding: 1.1rem 1.25rem;
+    }
+    .stat .n { font-size: 2rem; font-weight: 700; letter-spacing: -.05em; color: var(--text); line-height: 1.1; }
+    .stat .l { font-size: .84rem; color: var(--muted); margin-top: .15rem; }
+
+    /* ---------- pipeline ---------- */
+    .pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: .7rem; margin: .4rem 0 1.4rem; }
+    .step {
+        position: relative;
+        border: 1px solid var(--line); border-radius: 16px;
+        padding: .85rem .95rem;
+        background: rgba(255,255,255,.02);
+    }
+    .step:not(:last-child)::after {
+        content: ""; position: absolute; top: 50%; right: -.7rem;
+        width: .7rem; height: 2px; background: var(--line);
+    }
+    .step .dot {
+        width: 24px; height: 24px; border-radius: 50%;
+        display: grid; place-items: center;
+        font-size: .72rem; font-weight: 700;
+        border: 1.5px solid var(--line); color: var(--muted);
+        margin-bottom: .55rem;
+    }
+    .step .t { font-weight: 600; font-size: .95rem; color: var(--text); }
+    .step .s { font-size: .78rem; color: var(--muted); }
+    .step.done { border-color: rgba(57,217,138,.4); background: rgba(57,217,138,.06); }
+    .step.done .dot { background: var(--ok); border-color: var(--ok); color: #04150c; }
+    .step.fail { border-color: rgba(255,90,106,.5); background: rgba(255,90,106,.08); }
+    .step.fail .dot { background: var(--bad); border-color: var(--bad); color: #1a0508; }
+    .step.skip { opacity: .45; }
+
+    /* ---------- tool header ---------- */
+    .tool-head {
+        border: 1px solid var(--line); border-radius: 18px;
+        padding: 1.1rem 1.3rem; margin: .4rem 0 1rem;
+        background: linear-gradient(120deg, rgba(255,122,69,.10), rgba(106,147,255,.07));
+    }
+    .tool-head .fn { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 1.05rem; color: #ffc9a8; }
+    .tool-head .ds { color: var(--muted); margin-top: .35rem; line-height: 1.55; }
+
+    /* ---------- activity ---------- */
     .activity-row {
-        padding: .8rem 0;
-        border-bottom: 1px solid #edf0f6;
+        display: flex; gap: .8rem; align-items: flex-start;
+        padding: .8rem 0; border-bottom: 1px solid var(--line);
     }
     .activity-row:last-child { border-bottom: 0; }
-    .activity-title { font-weight: 650; color: #24283a; }
-    .activity-desc { font-size: .85rem; color: #7c8497; margin-top: .2rem; overflow-wrap: anywhere; }
-    .code-label {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: .85rem;
-        color: #59617a;
+    .pip { width: 9px; height: 9px; border-radius: 50%; margin-top: .45rem; background: var(--steel); flex: none; }
+    .pip.ok { background: var(--ok); } .pip.bad { background: var(--bad); }
+    .activity-title { font-weight: 600; color: var(--text); }
+    .activity-desc { font-size: .87rem; color: var(--muted); margin-top: .1rem; overflow-wrap: anywhere; }
+    .activity-time { font-size: .76rem; color: #626c91; margin-top: .2rem; }
+
+    /* ---------- inputs ---------- */
+    .stTextArea textarea, .stTextInput input {
+        background: var(--surface-2) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 14px !important;
+        font-family: "Space Grotesk", sans-serif !important;
+        font-size: 1rem !important;
     }
+    .stTextArea textarea:focus, .stTextInput input:focus {
+        border-color: var(--ember) !important;
+        box-shadow: 0 0 0 3px rgba(255,122,69,.18) !important;
+    }
+    ::placeholder { color: #5f6a91 !important; }
+
+    /* ---------- buttons ---------- */
     div.stButton > button, div.stDownloadButton > button {
         border-radius: 12px;
-        min-height: 2.7rem;
-        font-weight: 650;
-        border-color: #e0e5f0;
+        min-height: 2.75rem;
+        font-weight: 600;
+        font-family: "Space Grotesk", sans-serif;
+        background: var(--surface-2);
+        color: var(--text);
+        border: 1px solid var(--line);
+        transition: transform .12s, border-color .15s, box-shadow .15s;
+    }
+    div.stButton > button:hover, div.stDownloadButton > button:hover {
+        border-color: rgba(255,122,69,.6); color: #fff; transform: translateY(-1px);
     }
     div.stButton > button[kind="primary"] {
-        background: #171923;
-        border-color: #171923;
+        background: var(--forge); border: 0; color: #fff;
+        box-shadow: 0 8px 28px rgba(255, 79, 123, .35);
     }
-    .stTextArea textarea, .stTextInput input {
-        border-radius: 12px !important;
-        background: #fff !important;
+    div.stButton > button[kind="primary"]:hover { box-shadow: 0 10px 34px rgba(255, 79, 123, .55); }
+    .chips div.stButton > button {
+        min-height: 2.2rem; font-size: .85rem; font-weight: 500;
+        border-radius: 999px; color: var(--muted); background: transparent;
     }
-    div[data-testid="stFileUploader"] {
-        border-radius: 12px;
+
+    /* ---------- alerts, code, expander ---------- */
+    [data-testid="stAlert"] {
+        border-radius: 14px; border: 1px solid var(--line);
+        background: var(--surface-2);
     }
-    @media (max-width: 700px) {
+    [data-testid="stCode"], [data-testid="stCode"] pre {
+        border-radius: 14px !important;
+        background: #0a0e1d !important;
+        border: 1px solid var(--line);
+        font-family: "JetBrains Mono", ui-monospace, monospace !important;
+    }
+    [data-testid="stExpander"] {
+        border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.02);
+    }
+    [data-testid="stExpander"] summary:hover { color: var(--ember); }
+    [data-testid="stJson"] { background: #0a0e1d; border-radius: 12px; padding: .5rem; }
+    .stSpinner > div { border-top-color: var(--ember) !important; }
+    [data-testid="stCaptionContainer"] { color: var(--muted); }
+
+    :focus-visible { outline: 2px solid var(--steel) !important; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+    @media (max-width: 760px) {
         .block-container { padding: 1rem .8rem 2rem; }
-        .hero { letter-spacing: -.04em; }
-        .panel { padding: 1rem; }
+        .pipe { grid-template-columns: repeat(2, 1fr); }
+        .step::after { display: none; }
     }
     </style>
     """,
@@ -163,13 +283,14 @@ st.markdown(
 # -----------------------------
 # Helpers
 # -----------------------------
-def add_activity(title: str, description: str) -> None:
+def add_activity(title: str, description: str, tone: str = "info") -> None:
     st.session_state.activity.insert(
         0,
         {
             "title": title,
             "description": description,
             "time": datetime.now().strftime("%d %b, %H:%M"),
+            "tone": tone,
         },
     )
     st.session_state.activity = st.session_state.activity[:8]
@@ -181,9 +302,42 @@ def safe_filename(task: str) -> str:
     return f"{stem[:55]}.py"
 
 
+def render_pipeline(result: dict | None) -> None:
+    """Four-stage tracker that reflects what the agent actually did."""
+    status = (result or {}).get("status")
+    labels = [
+        ("Search", "Approved tools"),
+        ("Generate", "New candidate"),
+        ("Validate", "Safety checks"),
+        ("Save", "Tool registry"),
+    ]
+    if status is None:
+        states = ["", "", "", ""]
+    elif status == "existing_tools_found":
+        states = ["done", "skip", "skip", "skip"]
+    elif status == "success":
+        states = ["done", "done", "done", "done"]
+    elif status == "validation_failed":
+        states = ["done", "done", "fail", "skip"]
+    else:
+        states = ["fail", "skip", "skip", "skip"]
+
+    icons = {"done": "✓", "fail": "✕", "skip": "–", "": ""}
+    cells = []
+    for i, ((title, sub), state) in enumerate(zip(labels, states), start=1):
+        mark = icons[state] or str(i)
+        cells.append(
+            f'<div class="step {state}"><div class="dot">{mark}</div>'
+            f'<div class="t">{title}</div><div class="s">{sub}</div></div>'
+        )
+    st.markdown(f'<div class="pipe">{"".join(cells)}</div>', unsafe_allow_html=True)
+
+
 def show_result(result: dict) -> None:
     """Render the actual response returned by agent.process_task."""
     status = result.get("status", "unknown")
+
+    render_pipeline(result)
 
     if result.get("retrieval_warning"):
         st.warning(result["retrieval_warning"])
@@ -209,7 +363,7 @@ def show_result(result: dict) -> None:
     if status == "success":
         st.success(result.get("message", "Tool generated, validated, and saved."))
     elif status == "validation_failed":
-        st.error(result.get("message", "Validation failed. Candidate was not saved."))
+        st.error(result.get("message", "Validation failed. The candidate was not saved."))
     else:
         st.error(
             result.get(
@@ -225,9 +379,11 @@ def show_result(result: dict) -> None:
             or safe_filename(st.session_state.current_task)
         )
         description = candidate.get("description", "No description provided.")
-        st.markdown("### Generated tool")
-        st.markdown(f"**{filename}**")
-        st.write(description)
+        st.markdown(
+            f'<div class="tool-head"><div class="fn">{html.escape(str(filename))}</div>'
+            f'<div class="ds">{html.escape(str(description))}</div></div>',
+            unsafe_allow_html=True,
+        )
 
         source = candidate.get("code", "")
         if source:
@@ -242,46 +398,76 @@ def show_result(result: dict) -> None:
 
         validation = result.get("validation")
         if validation is not None:
-            st.markdown("#### Validation")
-            st.json(validation)
+            with st.expander("Validation report", expanded=(status == "validation_failed")):
+                st.json(validation)
 
         if result.get("saved") is not None:
-            with st.expander("Saved registry details"):
+            with st.expander("Registry details"):
                 st.json(result["saved"])
 
 
 def run_agent(task: str) -> None:
     if not task or not task.strip():
-        st.warning("Enter a task description first.")
+        st.warning("Describe the tool you need, then press Generate.")
         return
 
     st.session_state.current_task = task.strip()
+    st.session_state.runs += 1
     add_activity("Task submitted", task.strip())
 
     try:
         from agent import process_task
 
-        with st.spinner("Searching existing tools, then generating and validating if needed..."):
+        with st.spinner("Searching approved tools, then generating and validating if needed..."):
             result = process_task(task.strip())
 
         st.session_state.agent_result = result
         status = result.get("status", "unknown")
-        add_activity("Agent finished", f"Workflow status: {status}")
+        tone = "ok" if status in ("success", "existing_tools_found") else "bad"
+        add_activity("Agent finished", f"Workflow status: {status}", tone)
+
+        # Keep a local copy of successful tools for the Tool Library page.
+        candidate = result.get("tool") or result.get("candidate")
+        if status == "success" and candidate and candidate.get("code"):
+            known = {t.get("code") for t in st.session_state.saved_tools}
+            if candidate["code"] not in known:
+                st.session_state.saved_tools.insert(
+                    0,
+                    {
+                        "name": candidate.get("tool_name")
+                        or candidate.get("name")
+                        or safe_filename(task),
+                        "task": task.strip(),
+                        "code": candidate["code"],
+                        "saved_at": datetime.now().strftime("%d %b, %H:%M"),
+                    },
+                )
     except Exception as exc:
         st.session_state.agent_result = {
             "status": "failed",
             "error": f"{type(exc).__name__}: {exc}",
         }
-        add_activity("Agent error", f"{type(exc).__name__}: {exc}")
+        add_activity("Agent error", f"{type(exc).__name__}: {exc}", "bad")
+
+
+def use_example(text: str) -> None:
+    st.session_state.home_task = text
+
+
+def stat_card(number: str, label: str) -> str:
+    return f'<div class="stat"><div class="n">{html.escape(number)}</div><div class="l">{html.escape(label)}</div></div>'
 
 
 # -----------------------------
 # Sidebar navigation
 # -----------------------------
 with st.sidebar:
-    st.markdown('<div class="brand"><span class="brand-mark">✦</span>ToolSmith</div>', unsafe_allow_html=True)
-    st.caption("AI-powered tool creation")
-    st.divider()
+    st.markdown(
+        '<div class="brand"><div class="brand-mark">✦</div>'
+        '<div><div class="brand-name">ToolSmith</div>'
+        '<div class="brand-sub">AI-powered tool creation</div></div></div>',
+        unsafe_allow_html=True,
+    )
 
     page_options = ["Home", "New Task", "Tool Library"]
     selected_page = st.radio(
@@ -294,96 +480,136 @@ with st.sidebar:
     )
     st.session_state.page = selected_page
 
-    st.divider()
-    st.markdown("**Build smarter tools.**")
-    st.caption("Describe a task, review the agent's result, and reuse approved tools.")
+    st.write("")
+    st.markdown(
+        f'<div class="side-stat"><b>{len(st.session_state.saved_tools)}</b>'
+        f'<span>tools saved this session</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Describe a task, review the result, reuse approved tools.")
 
 
 # -----------------------------
 # Pages
 # -----------------------------
 if st.session_state.page == "Home":
-    st.markdown('<div class="eyebrow">Welcome to ToolSmith</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero">Turn ideas into<br><span class="gradient">useful tools.</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero">Forge tools from<br>plain language.</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="subtitle">Describe what you need in plain language. ToolSmith searches for approved tools first, then can generate, validate, and save a new candidate when needed.</div>',
+        '<div class="subtitle">Tell ToolSmith what you need. It checks approved tools first, '
+        'and only generates, validates, and saves a new one when nothing fits.</div>',
         unsafe_allow_html=True,
     )
 
-    left, right = st.columns([1.55, 1], gap="large")
-    with left:
-        with st.container(border=True):
-            st.markdown("### What do you want to build?")
-            home_task = st.text_area(
-                "Task description",
-                placeholder="Example: Create a tool that converts Celsius to Fahrenheit...",
-                height=125,
-                key="home_task",
-            )
+    with st.container(border=True, key="composer"):
+        home_task = st.text_area(
+            "Task description",
+            placeholder="Example: Create a tool that converts Celsius to Fahrenheit...",
+            height=120,
+            key="home_task",
+            label_visibility="collapsed",
+        )
+        btn_col, chip_col = st.columns([1, 3.2], gap="medium", vertical_alignment="center")
+        with btn_col:
             if st.button("✦  Generate tool", type="primary", use_container_width=True, key="home_generate"):
                 st.session_state.page = "Home"
                 run_agent(home_task)
+        with chip_col:
+            st.markdown('<div class="chips">', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            examples = [
+                ("Celsius → Fahrenheit", "Create a tool that converts Celsius to Fahrenheit."),
+                ("Clean a CSV", "Create a tool that removes duplicate rows from a CSV file."),
+                ("Slugify text", "Create a tool that turns a title into a URL-friendly slug."),
+            ]
+            for col, (label, text) in zip((c1, c2, c3), examples):
+                with col:
+                    st.button(label, key=f"ex_{label}", on_click=use_example, args=(text,), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    with right:
-        st.markdown('<div class="metric"><div class="eyebrow">Your workspace</div><div class="metric-number">' + str(len(st.session_state.saved_tools)) + '</div><div class="muted">Tools saved in this browser session</div></div>', unsafe_allow_html=True)
-        st.write("")
-        st.markdown('<div class="panel"><div class="panel-title">How it works</div><div class="muted">01 · Search approved tools<br><br>02 · Generate a candidate if needed<br><br>03 · Validate before saving<br><br>04 · Review and download the result</div></div>', unsafe_allow_html=True)
+    st.write("")
+    m1, m2, m3 = st.columns(3, gap="medium")
+    last_status = (st.session_state.agent_result or {}).get("status", "none yet").replace("_", " ")
+    m1.markdown(stat_card(str(len(st.session_state.saved_tools)), "Tools saved this session"), unsafe_allow_html=True)
+    m2.markdown(stat_card(str(st.session_state.runs), "Tasks run"), unsafe_allow_html=True)
+    m3.markdown(stat_card(last_status.capitalize(), "Last result"), unsafe_allow_html=True)
+
+    st.write("")
+    st.markdown("### How a task flows")
+    render_pipeline(st.session_state.agent_result)
 
     if st.session_state.agent_result:
-        st.divider()
-        st.markdown("## Latest result")
+        st.markdown("### Latest result")
         show_result(st.session_state.agent_result)
 
-    st.divider()
     st.markdown("### Recent activity")
     if not st.session_state.activity:
-        st.caption("Your recent activity will appear here.")
+        st.caption("Nothing yet. Submit a task above and its progress will show up here.")
     else:
-        for item in st.session_state.activity[:5]:
-            st.markdown(
-                f'<div class="activity-row"><div class="activity-title">{html.escape(item["title"])}</div><div class="activity-desc">{html.escape(item["description"])}</div><div class="muted">{html.escape(item["time"])}</div></div>',
-                unsafe_allow_html=True,
+        with st.container(border=True):
+            rows = "".join(
+                f'<div class="activity-row"><div class="pip {html.escape(item.get("tone", "info"))}"></div>'
+                f'<div><div class="activity-title">{html.escape(item["title"])}</div>'
+                f'<div class="activity-desc">{html.escape(item["description"])}</div>'
+                f'<div class="activity-time">{html.escape(item["time"])}</div></div></div>'
+                for item in st.session_state.activity[:5]
             )
+            st.markdown(rows, unsafe_allow_html=True)
 
 
 elif st.session_state.page == "New Task":
-    st.markdown('<div class="eyebrow">Create</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero">Create your <span class="gradient">next tool.</span></div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Submit a task to the real agent workflow. Review the returned tool candidates, validation results, and generated source code below.</div>', unsafe_allow_html=True)
-
-    default_task = st.session_state.current_task
-    task = st.text_area(
-        "Task description",
-        value=default_task,
-        placeholder="Describe the task you want the tool to perform...",
-        height=140,
-        key="new_task_text",
+    st.markdown('<div class="hero small">Create your next tool.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="subtitle">Submit a task to the agent. Review the matching tools, '
+        'validation results, and generated source below.</div>',
+        unsafe_allow_html=True,
     )
-    col1, col2, _ = st.columns([1.4, 1, 3])
-    with col1:
-        create_clicked = st.button("✦  Generate tool", type="primary", use_container_width=True)
-    with col2:
-        clear_clicked = st.button("Clear", use_container_width=True)
+
+    if "new_task_text" not in st.session_state:
+        st.session_state.new_task_text = st.session_state.current_task
+
+    def _clear_task() -> None:
+        st.session_state.new_task_text = ""
+        st.session_state.current_task = ""
+        st.session_state.agent_result = None
+
+    with st.container(border=True, key="composer"):
+        task = st.text_area(
+            "Task description",
+            placeholder="Describe the task you want the tool to perform...",
+            height=140,
+            key="new_task_text",
+            label_visibility="collapsed",
+        )
+        col1, col2, _ = st.columns([1.4, 1, 3])
+        with col1:
+            create_clicked = st.button("✦  Generate tool", type="primary", use_container_width=True)
+        with col2:
+            st.button("Clear", use_container_width=True, on_click=_clear_task)
 
     if create_clicked:
         run_agent(task)
 
-    if clear_clicked:
-        st.session_state.current_task = ""
-        st.session_state.agent_result = None
-        st.rerun()
-
     if st.session_state.agent_result:
-        st.divider()
+        st.write("")
         show_result(st.session_state.agent_result)
+    else:
+        st.write("")
+        render_pipeline(None)
 
 
 else:  # Tool Library
-    st.markdown('<div class="eyebrow">Workspace</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero">Your tool <span class="gradient">library.</span></div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Tools saved from this UI session. The backend registry remains the source of approved generated tools.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero small">Your tool library.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="subtitle">Tools generated in this session. The backend registry remains '
+        'the source of truth for approved tools.</div>',
+        unsafe_allow_html=True,
+    )
 
-    query = st.text_input("Search saved tools", placeholder="Search by filename or task...")
+    query = st.text_input(
+        "Search saved tools",
+        placeholder="Search by filename or task...",
+        label_visibility="collapsed",
+    )
     saved = st.session_state.saved_tools
     filtered = [
         item for item in saved
@@ -391,21 +617,25 @@ else:  # Tool Library
     ]
 
     if not filtered:
-        st.info("No tools saved in this UI session yet. A successful agent result is saved by the backend registry; use the download option to keep a local copy.")
+        st.info(
+            "No tools in this session yet. Generate one from Home or New Task and it will appear here. "
+            "Download any result to keep a local copy."
+        )
     else:
         for index, item in enumerate(filtered):
             with st.container(border=True):
-                first, second = st.columns([4, 1])
+                first, second = st.columns([4, 1], vertical_alignment="center")
                 with first:
-                    st.markdown(f"**{item.get('name', 'Unnamed tool')}**")
+                    st.markdown(f"**`{item.get('name', 'Unnamed tool')}`**")
                     st.caption(item.get("task", ""))
                     st.caption(f"Saved {item.get('saved_at', 'during this session')}")
                 with second:
                     if st.button("Open", key=f"open_saved_{index}", use_container_width=True):
                         st.session_state.current_task = item.get("task", "")
+                        st.session_state.new_task_text = item.get("task", "")
                         st.session_state.agent_result = {
                             "status": "success",
-                            "message": "Opened a tool saved in this UI session.",
+                            "message": "Opened a tool saved in this session.",
                             "tool": {
                                 "tool_name": item.get("name", "saved_tool.py"),
                                 "description": item.get("task", ""),
@@ -417,4 +647,4 @@ else:  # Tool Library
                 with st.expander("View source"):
                     st.code(item.get("code", ""), language="python", line_numbers=True)
 
-st.caption("ToolSmith · Generated code should be reviewed before use. Validation does not guarantee that code is safe or correct.")
+st.caption("ToolSmith · Review generated code before use. Validation does not guarantee that code is safe or correct.")
