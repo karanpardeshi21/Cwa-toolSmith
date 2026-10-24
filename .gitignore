@@ -1,0 +1,12 @@
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Runtime registry data
+tool_registry/registry.json
