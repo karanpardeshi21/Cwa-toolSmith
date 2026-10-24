@@ -155,3 +155,12 @@ def find_tool_by_task(task: str) -> dict | None:
 
     return best_tool
 
+def get_tool_version(name: str) -> int | None:
+    """Return the latest approved version number for a tool."""
+    tool = find_tool(name)
+
+    if tool is None:
+        return None
+
+    return tool["version"]
+
