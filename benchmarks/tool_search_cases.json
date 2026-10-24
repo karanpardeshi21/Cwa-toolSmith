@@ -1,0 +1,43 @@
+
+[
+  {
+    "query": "find duplicate or repeated records in a dataset",
+    "expected_tool": "duplicate_detector"
+  },
+  {
+    "query": "identify duplicate values in a list of numbers",
+    "expected_tool": "duplicate_detector"
+  },
+  {
+    "query": "clean missing or null values from a CSV dataset",
+    "expected_tool": "csv_cleaner"
+  },
+  {
+    "query": "remove empty rows and normalize column names in a CSV file",
+    "expected_tool": "csv_cleaner"
+  },
+  {
+    "query": "calculate the mean median minimum maximum and standard deviation of a dataset",
+    "expected_tool": "data_summary"
+  },
+  {
+    "query": "generate basic statistical insights from numerical data",
+    "expected_tool": "data_summary"
+  },
+  {
+    "query": "sort a list of numbers in ascending order",
+    "expected_tool": "list_sorter"
+  },
+  {
+    "query": "count the frequency of each item in a list",
+    "expected_tool": "frequency_counter"
+  },
+  {
+    "query": "convert a JSON string into a Python dictionary",
+    "expected_tool": "json_parser"
+  },
+  {
+    "query": "filter records based on a specified condition",
+    "expected_tool": "data_filter"
+  }
+]
