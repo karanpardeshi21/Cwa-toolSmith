@@ -1,20 +1,6 @@
-
-
-# Python cache
+.env
+.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-
-# Virtual environments
-.venv/
-venv/
-
-# Runtime registry data
 tool_registry/registry.json
-=======
-__pycache__/
-*.py[cod]
-.env
-.venv/
-venv/
-
