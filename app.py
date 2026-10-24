@@ -218,3 +218,4 @@ with main_col:
             st.markdown('<div class="panel"><div class="run-title">Current Run</div><div class="run-flex"><div class="ring"><span>3/4</span></div><div class="step-list"><div><span class="step-dot done">✓</span>Planning</div><div><span class="step-dot done">✓</span>Generating tool</div><div><span class="step-dot active"></span>Running tests</div><div><span class="step-dot pending"></span>Saving to library</div></div></div></div>',unsafe_allow_html=True)
 
 st.markdown("</div>",unsafe_allow_html=True)
+`
