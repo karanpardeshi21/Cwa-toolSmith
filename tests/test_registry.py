@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+
 import registry
 
 
@@ -214,6 +215,107 @@ class TestGetToolVersion(unittest.TestCase):
             result = registry.get_tool_version("unknown_tool")
 
         self.assertIsNone(result)
+
+class TestSaveTool(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.base_path = Path(self.temp_dir.name)
+        self.registry_dir = self.base_path / "tool_registry"
+        self.registry_file = self.registry_dir / "registry.json"
+
+        self.patches = [
+            patch.object(registry, "BASE_DIR", self.base_path),
+            patch.object(registry, "REGISTRY_DIR", self.registry_dir),
+            patch.object(registry, "REGISTRY_FILE", self.registry_file),
+        ]
+
+        for patcher in self.patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def generated_tool(self):
+        return {
+            "status": "success",
+            "tool_name": "csv_cleaner",
+            "description": "Clean CSV data",
+            "code": "def run(inputs: dict) -> dict:\n    return inputs\n",
+            "tests": [],
+            "input_schema": {},
+            "output_schema": {},
+            "capabilities": ["csv", "cleaning"],
+            "metadata": {},
+        }
+
+    def validation_result(self):
+        return {
+            "status": "success",
+            "passed": True,
+            "syntax_valid": True,
+            "tests_passed": 1,
+            "tests_failed": 0,
+            "errors": [],
+        }
+
+    def test_saves_validated_tool(self):
+        result = registry.save_tool(
+            self.generated_tool(),
+            self.validation_result(),
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["version"], 1)
+
+        saved_file = self.base_path / result["code_path"]
+        self.assertTrue(saved_file.exists())
+
+        saved_tool = registry.find_tool("csv_cleaner")
+        self.assertIsNotNone(saved_tool)
+        self.assertEqual(saved_tool["version"], 1)
+        self.assertEqual(
+            saved_tool["validation"]["syntax_valid"], True
+        )
+        self.assertEqual(
+            saved_tool["validation"]["tests_passed"], 1
+        )
+
+    def test_rejects_failed_validation(self):
+        validation = self.validation_result()
+        validation["status"] = "failed"
+        validation["passed"] = False
+        validation["errors"] = ["Test failed"]
+
+        result = registry.save_tool(
+            self.generated_tool(), validation
+        )
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIsNone(registry.find_tool("csv_cleaner"))
+
+    def test_increments_version(self):
+        first = registry.save_tool(
+            self.generated_tool(), self.validation_result()
+        )
+        second = registry.save_tool(
+            self.generated_tool(), self.validation_result()
+        )
+
+        self.assertEqual(first["version"], 1)
+        self.assertEqual(second["version"], 2)
+
+    def test_rejects_missing_code(self):
+        tool = self.generated_tool()
+        tool["code"] = ""
+
+        result = registry.save_tool(
+            tool, self.validation_result()
+        )
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIsNone(registry.find_tool("csv_cleaner"))
 
 
 if __name__ == "__main__":
