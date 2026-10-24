@@ -1,352 +1,119 @@
-import streamlit as st
-
-st.set_page_config(
-    page_title="ToolSmith",
-    page_icon="✦",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
-
-st.markdown("""
-<style>
-#MainMenu, footer, header {visibility: hidden;}
-[data-testid="stAppViewContainer"] {
-    background: linear-gradient(125deg, #f8f9fc, #edf2fc);
-}
-.block-container {
-    max-width: 1600px;
-    padding: 18px 24px 30px;
-}
-.stApp { color: #11162e; }
-h1, h2, h3, p { color: #11162e; }
-[data-testid="stHorizontalBlock"] { gap: 12px; }
-
-.panel {
-    background: rgba(255,255,255,.76);
-    border: 1px solid rgba(220,226,240,.85);
-    border-radius: 24px;
-    padding: 22px;
-    height: 100%;
-}
-.sidebar {
-    background: rgba(255,255,255,.72);
-    border: 1px solid #e9edf5;
-    border-radius: 28px;
-    padding: 24px 18px;
-    min-height: 890px;
-}
-.brand {
-    font-size: 25px;
-    font-weight: 750;
-    color: #080d24;
-    margin: 24px 0 32px;
-}
-.brand span { color: #392dff; font-size: 35px; }
-.nav {
-    padding: 13px 12px;
-    margin: 8px 0;
-    border-radius: 14px;
-    font-size: 15px;
-    color: #4b5265;
-}
-.nav.active { background: #edf0ff; color: #1725ce; }
-.hero {
-    font-size: clamp(35px, 3.6vw, 59px);
-    line-height: 1.12;
-    letter-spacing: -2.5px;
-    font-weight: 800;
-    color: #080808;
-    margin: 30px 0 12px;
-}
-.gradient {
-    background: linear-gradient(90deg,#6c2cff,#458eff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.subtitle {
-    color: #858d9e;
-    font-size: 18px;
-    line-height: 1.5;
-}
-.stats-title {
-    font-size: 21px;
-    font-weight: 700;
-    line-height: 1.35;
-    margin: 28px 0 55px;
-}
-.stat-number { font-size: 27px; font-weight: 750; }
-.stat-label { font-size: 12px; color: #737d99; }
-.stat-divider { border-left: 1px solid #dce2f2; padding-left: 12px; }
-.section-title {
-    font-size: 20px;
-    font-weight: 750;
-    margin-bottom: 22px;
-    color: #101010;
-}
-.activity {
-    display: flex;
-    gap: 13px;
-    margin-bottom: 28px;
-}
-.activity-icon {
-    min-width: 42px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: #eef1ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 19px;
-}
-.activity-title { font-weight: 650; font-size: 14px; }
-.activity-desc { color: #7b8497; font-size: 12px; margin-top: 5px; }
-.time { color: #8790a2; font-size: 11px; white-space: nowrap; }
-.code-window {
-    background: #1d2024;
-    color: #f4f5f7;
-    border-radius: 15px;
-    padding: 17px;
-    min-height: 245px;
-    overflow: hidden;
-    font-family: monospace;
-    font-size: 12px;
-    line-height: 1.9;
-    white-space: pre-wrap;
-}
-.pill {
-    background: #e4fbef;
-    color: #06743e;
-    padding: 8px 12px;
-    border-radius: 14px;
-    font-size: 12px;
-    font-weight: 600;
-}
-.run-step {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 18px 0;
-    font-size: 13px;
-}
-.done { color: #0acb70; font-size: 19px; }
-.wait { color: #aeb6c6; font-size: 19px; }
-.stButton button {
-    border-radius: 13px;
-    min-height: 42px;
-    border: 1px solid #e0e5ef;
-    background: rgba(255,255,255,.8);
-    color: #11162e;
-}
-.stButton button:hover {
-    border-color: #969bff;
-    color: #3025dc;
-}
-.stTextArea textarea {
-    background: rgba(255,255,255,.8);
-    border: 1px solid #e4e8f1;
-    border-radius: 16px;
-}
-@media(max-width: 900px) {
-    .sidebar { min-height: auto; }
-    .hero { margin-top: 8px; }
-}
+.section-title{font-size:20px;font-weight:800;margin-bottom:20px;color:#111}
+.activity{display:flex;gap:12px;margin:0 0 23px;align-items:flex-start}
+.activity-icon{width:40px;min-width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#edf0ff;font-size:18px}
+.activity-name{font-size:14px;font-weight:750;color:#151827}.activity-desc{font-size:12px;color:#7d8597;margin-top:5px}
+.code-window{background:#1e2025;color:#f5f6fa;border-radius:15px;padding:18px;font:12px/1.9 monospace;white-space:pre-wrap;overflow:auto;min-height:250px}
+.pill{display:inline-block;background:#e4fbef;color:#087342;padding:8px 12px;border-radius:14px;font-size:12px;font-weight:700}
+.small-muted{font-size:12px;color:#7c8598}
+div.stButton>button{border-radius:13px;min-height:43px;border:1px solid #e1e6f0;background:rgba(255,255,255,.9);color:#11152d;font-weight:600}
+div.stButton>button:hover{border-color:#9aa4ff;color:#3829dd}
+.stTextArea textarea{border-radius:16px!important;background:#fff!important;border:1px solid #e4e8f2!important;color:#14172a!important}
+@media(max-width:900px){.hero{font-size:34px;letter-spacing:-1px}}
 </style>
 """, unsafe_allow_html=True)
 
-# -------- Main page layout --------
 sidebar, main = st.columns([0.78, 4.5], gap="medium")
 
 with sidebar:
-    st.markdown("""
-    <div class="sidebar">
-        <div style="font-size:12px;color:#a1a7b5">🔴 🟡 🟢</div>
-        <div class="brand"><span>✦</span> ToolSmith</div>
-        <div class="nav active">⌂ &nbsp; Home</div>
-        <div class="nav">⊞ &nbsp; New Task</div>
-        <div class="nav">▤ &nbsp; Tool Library</div>
-        <div style="margin-top:245px;font-size:80px;text-align:center;
-                    color:#d5dcff">◇</div>
-        <div style="font-size:22px;font-weight:750;line-height:1.25;
-                    margin-top:10px">
-            Build<br>Smarter Tools<br>Every Day.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="panel" style="min-height:850px;padding:22px 15px;"><div style="font-size:12px">🔴 🟡 🟢</div><div class="brand">✦ ToolSmith</div>', unsafe_allow_html=True)
+    for label, symbol in [("Home", "⌂"), ("New Task", "⊞"), ("Tool Library", "▤")]:
+        if st.button(f"{symbol}  {label}", key=f"nav_{label}", use_container_width=True):
+            st.session_state.page = label
+    st.markdown('<div style="margin-top:180px;text-align:center;font-size:76px;color:#d5dcff">◇</div><div style="font-size:21px;font-weight:800;line-height:1.25;margin-top:8px;color:#11152d">Build<br>Smarter Tools<br>Every Day.</div></div>', unsafe_allow_html=True)
 
 with main:
-    top_left, top_right = st.columns([1.65, 1], gap="medium")
+    if st.session_state.page == "Tool Library":
+        st.markdown('<div class="hero">Your tool <span class="gradient">library.</span></div><div class="subtitle">Find and reuse approved tools.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        if st.session_state.saved:
+            st.markdown("**generated_tool.py**")
+            st.caption("Demo saved tool. Connect registry.py to load persistent real tools.")
+        else:
+            st.info("No demo tools saved yet. Generate a task, run the demo test, then save.")
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        top_left, top_right = st.columns([1.65, 1], gap="medium")
+        with top_left:
+            st.markdown('<div class="hero">Turn ideas into <span class="gradient">tools.</span></div><div class="subtitle">ToolSmith is an AI agent that creates, tests, and reuses its own tools to solve real tasks.</div>', unsafe_allow_html=True)
+            task = st.text_area("Task", placeholder="Describe what you want to do...", height=100, label_visibility="collapsed", key="task_input")
+            attach_col, generate_col = st.columns([1, 5])
+            with attach_col:
+                st.file_uploader("Attach", label_visibility="collapsed", help="Attach a file", key="upload")
+            with generate_col:
+                clicked = st.button("↑  Generate tool", type="primary", use_container_width=True)
+            if clicked:
+                if task.strip():
+                    st.session_state.task = task.strip()
+                    st.session_state.generated = True
+                    st.session_state.tests_run = False
+                    st.session_state.saved = False
+                    st.session_state.activity.insert(0, ("Received task", task.strip(), "Just now"))
+                    st.success("Task received. Demo mode: the AI backend has not been called.")
+                else:
+                    st.warning("Enter a task first.")
 
-    with top_left:
-        st.markdown("""
-        <div class="hero">
-            Turn ideas into <span class="gradient">tools.</span>
-        </div>
-        <div class="subtitle">
-            ToolSmith is an AI agent that creates, tests, and reuses
-            its own tools to solve real tasks.
-        </div>
-        """, unsafe_allow_html=True)
+        with top_right:
+            st.markdown("""
+            <div class="panel" style="min-height:300px;background:linear-gradient(140deg,#e8eaff,#f9faff)">
+              <div class="small-muted">TOOL LIBRARY</div>
+              <div style="font-size:22px;font-weight:800;line-height:1.3;margin:25px 0 55px;color:#11152d">A growing library<br>of capabilities.</div>
+              <div style="font-size:64px;text-align:right;color:#a8b9ff;line-height:1">◉</div><hr style="border-color:#dce2f2">
+              <div style="display:flex;justify-content:space-between;gap:8px">
+                <div><div class="stat-num">24</div><div class="stat-label">Tools Created</div></div>
+                <div style="border-left:1px solid #dce2f2;padding-left:12px"><div class="stat-num">18</div><div class="stat-label">Tests Passed</div></div>
+                <div style="border-left:1px solid #dce2f2;padding-left:12px"><div class="stat-num">92%</div><div class="stat-label">Success Rate</div></div>
+              </div>
+            </div>""", unsafe_allow_html=True)
 
-        task = st.text_area(
-            "Task",
-            placeholder="Describe what you want to do...",
-            height=105,
-            label_visibility="collapsed",
-            key="task_input",
-        )
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        activity_col, code_col, run_col = st.columns([1.12, 1.22, 0.75], gap="small")
 
-        generate_col, attach_col = st.columns([5, 1])
+        with activity_col:
+            st.markdown('<div class="panel"><div class="section-title">Recent Activity</div>', unsafe_allow_html=True)
+            icons = ["✦", "</>", "✓", "▱"]
+            for i, (name, desc, when) in enumerate(st.session_state.activity[:4]):
+                st.markdown(f'<div class="activity"><div class="activity-icon">{icons[min(i,3)]}</div><div style="flex:1"><div class="activity-name">{name}</div><div class="activity-desc">{desc}</div></div><div class="small-muted">{when}</div></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        with attach_col:
-            st.button("＋", help="Attachment placeholder")
+        with code_col:
+            st.markdown('<div class="panel">', unsafe_allow_html=True)
+            file_name = "generated_tool.py" if st.session_state.generated else "extract_pdf_tables.py"
+            pill = "✓ Demo Test Passed" if st.session_state.tests_run else "Demo Preview"
+            st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:15px"><b>🐍 {file_name}</b><span class="pill">{pill}</span></div>', unsafe_allow_html=True)
+            sample_code = """1  import fitz  # PyMuPDF
+2  import pandas as pd
+3
+4  def extract_tables(pdf_path):
+5      doc = fitz.open(pdf_path)
+6      tables = []
+7      for page in doc:
+8          for table in page.find_tables():
+9              df = pd.DataFrame(table.extract())
+10             tables.append(df)
+11
+12     return pd.concat(tables, ignore_index=True)"""
+            st.markdown(f'<div class="code-window">{sample_code}</div></div>', unsafe_allow_html=True)
+            test_col, save_col = st.columns(2)
+            with test_col:
+                if st.button("▷  Run Tests", use_container_width=True):
+                    st.session_state.tests_run = True
+                    st.info("Demo only: no real code tests were executed.")
+            with save_col:
+                if st.button("▱  Save to Library", use_container_width=True):
+                    if st.session_state.generated and st.session_state.tests_run:
+                        st.session_state.saved = True
+                        st.success("Demo tool saved for this session.")
+                    else:
+                        st.warning("Generate a task and run the demo test first.")
 
-        with generate_col:
-            generate = st.button(
-                "↑  Generate tool",
-                type="primary",
-                use_container_width=True,
-            )
+        with run_col:
+            progress = 4 if st.session_state.saved else 3 if st.session_state.tests_run else 2 if st.session_state.generated else 1
+            st.markdown('<div class="panel" style="min-height:245px"><div class="section-title">Current Run</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align:center;font-size:36px;font-weight:800;margin:20px 0;color:#26376e">{progress}/4</div>', unsafe_allow_html=True)
+            for i, step in enumerate(["Planning", "Generating tool", "Running tests", "Saving to library"], 1):
+                symbol, color = ("●", "#0acb70") if i < progress or (st.session_state.saved and i == 4) else ("◉", "#3479ff") if i == progress else ("○", "#aeb6c6")
+                st.markdown(f'<div style="display:flex;gap:10px;margin:15px 0;font-size:13px;color:#252a3b"><span style="color:{color};font-size:18px">{symbol}</span>{step}</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        if generate:
-            if task.strip():
-                st.session_state["task"] = task.strip()
-                st.session_state["run_status"] = "Planning"
-                st.info(
-                    "Task captured. Connect your tool-generation "
-                    "backend to generate a real candidate."
-                )
-            else:
-                st.warning("Enter a task first.")
+st.caption("Prototype UI: statistics are sample values. AI generation, real testing, and persistent saving need backend integration.")
 
-    with top_right:
-        st.markdown("""
-        <div class="panel" style="min-height:300px;
-             background:linear-gradient(140deg,#e9eaff,#f8faff)">
-            <div style="font-size:12px;color:#6d79b1">
-                TOOL LIBRARY
-            </div>
-            <div class="stats-title">
-                A growing library<br>of capabilities.
-            </div>
-            <div style="font-size:65px;text-align:right;
-                        color:#a8b9ff">◉</div>
-            <hr style="border-color:#dce2f2">
-            <div style="display:flex;justify-content:space-between;
-                        gap:8px">
-                <div><div class="stat-number">24</div>
-                    <div class="stat-label">Tools Created</div></div>
-                <div class="stat-divider">
-                    <div class="stat-number">18</div>
-                    <div class="stat-label">Tests Passed</div></div>
-                <div class="stat-divider">
-                    <div class="stat-number">92%</div>
-                    <div class="stat-label">Success Rate</div></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
-
-    activity_col, code_col, run_col = st.columns(
-        [1.12, 1.22, 0.75],
-        gap="small",
-    )
-
-    with activity_col:
-        st.markdown("""
-        <div class="panel">
-            <div class="section-title">Recent Activity</div>
-            <div class="activity">
-                <div class="activity-icon">✦</div>
-                <div><div class="activity-title">Received task</div>
-                <div class="activity-desc">
-                    “Extract tables from this PDF and save as CSV”
-                </div></div>
-            </div>
-            <div class="activity">
-                <div class="activity-icon" style="background:#e6fbf1">
-                    &lt;/&gt;
-                </div>
-                <div><div class="activity-title">Generated tool</div>
-                <div class="activity-desc">Created extract_pdf_tables.py</div>
-                </div>
-            </div>
-            <div class="activity">
-                <div class="activity-icon" style="background:#e6fbf1">
-                    ✓
-                </div>
-                <div><div class="activity-title">Running tests</div>
-                <div class="activity-desc">3/3 tests passed</div></div>
-            </div>
-            <div class="activity" style="margin-bottom:0">
-                <div class="activity-icon" style="background:#f0f2f6">
-                    ▱
-                </div>
-                <div><div class="activity-title">Tool saved</div>
-                <div class="activity-desc">
-                    Added to library for future use
-                </div></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with code_col:
-        st.markdown("""
-        <div class="panel">
-            <div style="display:flex;justify-content:space-between;
-                        align-items:center;gap:8px;margin-bottom:15px">
-                <div style="font-size:13px;font-weight:650">
-                    🐍 &nbsp; extract_pdf_tables.py
-                </div>
-                <span class="pill">✓ Test Passed</span>
-            </div>
-            <div class="code-window"><span style="color:#9da8b7">
-1</span>  <span style="color:#ff827c">import</span> fitz
-<span style="color:#9da8b7">2</span>  <span style="color:#ff827c">import</span> pandas <span style="color:#69c9ff">as</span> pd
-<span style="color:#9da8b7">3</span>
-<span style="color:#9da8b7">4</span>  <span style="color:#ff827c">def</span> extract_tables(pdf_path):
-<span style="color:#9da8b7">5</span>      doc = fitz.open(pdf_path)
-<span style="color:#9da8b7">6</span>      tables = []
-<span style="color:#9da8b7">7</span>      <span style="color:#ff827c">for</span> page <span style="color:#ff827c">in</span> doc:
-<span style="color:#9da8b7">8</span>          <span style="color:#ff827c">for</span> table <span style="color:#ff827c">in</span> page.find_tables():
-<span style="color:#9da8b7">9</span>              df = pd.DataFrame(table.extract())
-<span style="color:#9da8b7">10</span>             tables.append(df)
-<span style="color:#9da8b7">11</span>
-<span style="color:#9da8b7">12</span> <span style="color:#ff827c">return</span> pd.concat(tables)
-            </div>
-        """, unsafe_allow_html=True)
-
-        run_tests_col, save_col = st.columns(2)
-
-        with run_tests_col:
-            if st.button("▷  Run Tests", use_container_width=True):
-                st.info("Connect the test runner to execute real tests.")
-
-        with save_col:
-            if st.button("▱  Save to Library", use_container_width=True):
-                st.info("Connect the registry writer to save approved tools.")
-
-    with run_col:
-        st.markdown("""
-        <div class="panel" style="min-height:245px">
-            <div class="section-title">Current Run</div>
-            <div style="display:flex;align-items:center;
-                        justify-content:center;margin:20px 0">
-                <div style="width:105px;height:105px;border-radius:50%;
-                    border:9px solid #e8ebf5;
-                    border-top-color:#8f9dff;
-                    border-right-color:#4c78ff;
-                    border-bottom-color:#8f9dff;
-                    display:flex;align-items:center;
-                    justify-content:center;font-size:23px;
-                    font-weight:750">3/4</div>
-            </div>
-            <div class="run-step"><span class="done">●</span> Planning</div>
-            <div class="run-step"><span class="done">●</span> Generating tool</div>
-            <div class="run-step"><span style="color:#3479ff">◯</span>
-                Running tests</div>
-            <div class="run-step"><span class="wait">◯</span>
-                Saving to library</div>
-        </div>
-        """, unsafe_allow_html=True)
