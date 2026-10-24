@@ -407,47 +407,78 @@ def show_result(result: dict) -> None:
 
 
 def run_agent(task: str) -> None:
-    if not task or not task.strip():
+    """Run ToolSmith's agent and display actionable errors."""
+
+    if not isinstance(task, str) or not task.strip():
         st.warning("Describe the tool you need, then press Generate.")
         return
 
-    st.session_state.current_task = task.strip()
+    task = task.strip()
+    st.session_state.current_task = task
     st.session_state.runs += 1
-    add_activity("Task submitted", task.strip())
+    add_activity("Task submitted", task)
 
     try:
         from agent import process_task
 
-        with st.spinner("Searching approved tools, then generating and validating if needed..."):
-            result = process_task(task.strip())
+        with st.spinner(
+            "Searching approved tools, generating, validating, and saving..."
+        ):
+            result = process_task(task)
+
+        if not isinstance(result, dict):
+            raise TypeError("Agent returned an invalid response.")
 
         st.session_state.agent_result = result
         status = result.get("status", "unknown")
-        tone = "ok" if status in ("success", "existing_tools_found") else "bad"
-        add_activity("Agent finished", f"Workflow status: {status}", tone)
 
-        # Keep a local copy of successful tools for the Tool Library page.
+        if status in ("success", "existing_tools_found"):
+            add_activity("Agent finished", f"Workflow status: {status}", "ok")
+        else:
+            error = result.get("error") or result.get("message") or status
+            add_activity("Agent failed", str(error), "bad")
+
+        # Keep successfully generated tools in the session library.
         candidate = result.get("tool") or result.get("candidate")
-        if status == "success" and candidate and candidate.get("code"):
-            known = {t.get("code") for t in st.session_state.saved_tools}
+
+        if (
+            status == "success"
+            and isinstance(candidate, dict)
+            and candidate.get("code")
+        ):
+            known = {
+                item.get("code")
+                for item in st.session_state.saved_tools
+            }
+
             if candidate["code"] not in known:
                 st.session_state.saved_tools.insert(
                     0,
                     {
-                        "name": candidate.get("tool_name")
-                        or candidate.get("name")
-                        or safe_filename(task),
-                        "task": task.strip(),
+                        "name": (
+                            candidate.get("tool_name")
+                            or candidate.get("name")
+                            or safe_filename(task)
+                        ),
+                        "task": task,
                         "code": candidate["code"],
                         "saved_at": datetime.now().strftime("%d %b, %H:%M"),
                     },
                 )
+
     except Exception as exc:
+        error_message = f"{type(exc).__name__}: {exc}"
+
         st.session_state.agent_result = {
             "status": "failed",
-            "error": f"{type(exc).__name__}: {exc}",
+            "stage": "application",
+            "error": error_message,
+            "message": "ToolSmith could not complete the request.",
         }
-        add_activity("Agent error", f"{type(exc).__name__}: {exc}", "bad")
+
+        add_activity("Application error", error_message, "bad")
+        st.error(f"ToolSmith error: {error_message}")
+
 
 
 def use_example(text: str) -> None:
