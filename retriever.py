@@ -1,4 +1,3 @@
-
 """Semantic retrieval for approved ToolSmith tools."""
 
 import json
@@ -41,7 +40,13 @@ def _is_approved_record(tool: Any) -> bool:
 def _latest_approved_tools() -> list[dict]:
     """Return the latest approved version of each registered tool."""
     registry_data = registry.load_registry()
-    tools_by_name = registry_data["tools"]
+    if not isinstance(registry_data, dict):
+        return []
+
+    tools_by_name = registry_data.get("tools", {})
+    if not isinstance(tools_by_name, dict):
+        return []
+
     approved_tools = []
 
     for name, versions in tools_by_name.items():
@@ -51,39 +56,40 @@ def _latest_approved_tools() -> list[dict]:
         candidates = [
             tool
             for tool in versions
-            if _is_approved_record(tool)
-            and tool.get("name") == name
+            if _is_approved_record(tool) and tool.get("name") == name
         ]
 
         if candidates:
-            latest = max(candidates, key=lambda item: item["version"])
-            approved_tools.append(latest)
+            approved_tools.append(
+                max(candidates, key=lambda item: item["version"])
+            )
 
     return approved_tools
 
 
 def _tool_document(tool: dict) -> str:
-    """Build searchable text from a tool's descriptive metadata."""
+    """Build searchable text from descriptive metadata and schemas."""
     capabilities = tool.get("capabilities", [])
     if not isinstance(capabilities, list):
         capabilities = []
 
-    # Schemas can help distinguish tools with similar descriptions.
-    input_schema = tool.get("input_schema", {})
-    output_schema = tool.get("output_schema", {})
-
-    parts = [
-        f"Tool name: {tool.get('name', '')}",
-        f"Description: {tool.get('description', '')}",
-        "Capabilities: " + ", ".join(map(str, capabilities)),
-        "Input schema: " + json.dumps(input_schema, sort_keys=True),
-        "Output schema: " + json.dumps(output_schema, sort_keys=True),
-    ]
-    return "\n".join(parts)
+    return "\n".join(
+        [
+            f"Tool name: {tool.get('name', '')}",
+            f"Description: {tool.get('description', '')}",
+            "Capabilities: " + ", ".join(map(str, capabilities)),
+            "Input schema: " + json.dumps(
+                tool.get("input_schema", {}), sort_keys=True, default=str
+            ),
+            "Output schema: " + json.dumps(
+                tool.get("output_schema", {}), sort_keys=True, default=str
+            ),
+        ]
+    )
 
 
 def _cosine_similarity(vector_a, vector_b) -> float:
-    """Calculate cosine similarity without requiring NumPy directly."""
+    """Calculate cosine similarity between two vectors."""
     a = [float(value) for value in vector_a]
     b = [float(value) for value in vector_b]
 
@@ -106,14 +112,9 @@ def retrieve_tools(
     min_score: float | None = None,
 ) -> list[dict]:
     """
-    Retrieve approved tools ranked by semantic similarity.
+    Return approved tools ranked by semantic similarity.
 
-    Each result contains the full approved registry record plus
-    a similarity_score field. Scores are ranking signals, not
-    probabilities or guarantees of compatibility.
-
-    Returns an empty list for invalid queries or when no eligible
-    tools are registered. Invalid top_k or min_score raises ValueError.
+    Scores rank candidates; they do not prove functional compatibility.
     """
     if not isinstance(query, str) or not query.strip():
         return []
@@ -126,8 +127,7 @@ def retrieve_tools(
             isinstance(min_score, bool)
             or not isinstance(min_score, (int, float))
             or not math.isfinite(min_score)
-            or min_score < -1.0
-            or min_score > 1.0
+            or not -1.0 <= min_score <= 1.0
         ):
             raise ValueError("min_score must be between -1 and 1.")
 
@@ -135,10 +135,8 @@ def retrieve_tools(
     if not tools:
         return []
 
-    documents = [_tool_document(tool) for tool in tools]
     model = _load_model()
-
-    # One batch call keeps query and document embeddings consistent.
+    documents = [_tool_document(tool) for tool in tools]
     embeddings = model.encode(
         [query.strip(), *documents],
         normalize_embeddings=True,
@@ -165,5 +163,4 @@ def retrieve_tools(
         ),
         reverse=True,
     )
-
     return ranked[:top_k]

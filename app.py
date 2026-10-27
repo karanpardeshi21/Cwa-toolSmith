@@ -630,31 +630,169 @@ elif st.session_state.page == "New Task":
 
 
 else:  # Tool Library
-    st.markdown('<div class="hero small">Your tool library.</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="subtitle">Tools generated in this session. The backend registry remains '
-        'the source of truth for approved tools.</div>',
+        '<div class="hero small">Your tool library.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="subtitle">Approved tools from the backend registry, '
+        'along with tools generated in this session.</div>',
         unsafe_allow_html=True,
     )
 
     query = st.text_input(
         "Search saved tools",
-        placeholder="Search by filename or task...",
+        placeholder="Search by tool name or description...",
         label_visibility="collapsed",
+        key="library_search",
     )
-    saved = st.session_state.saved_tools
+
+    # Load approved tools from the persistent backend registry.
+    registry_tools = []
+
+    try:
+        from registry import load_registry
+
+        registry_data = load_registry()
+        registry_groups = registry_data.get("tools", {})
+
+        if isinstance(registry_groups, dict):
+            for tool_name, versions in registry_groups.items():
+                if not isinstance(versions, list):
+                    continue
+
+                for tool in versions:
+                    if not isinstance(tool, dict):
+                        continue
+
+                    validation = tool.get("validation", {})
+                    if (
+                        validation.get("passed") is True
+                        and validation.get("status") == "success"
+                    ):
+                        registry_tools.append({
+                            **tool,
+                            "name": tool.get("name", tool_name),
+                            "description": tool.get("description", ""),
+                            "source": "Backend registry",
+                        })
+
+    except Exception as exc:
+        st.error(f"Could not load the backend registry: {exc}")
+
+    # Merge session tools without duplicating registry entries.
+    merged_tools = {}
+    for tool in registry_tools:
+        key = (
+            tool.get("name", ""),
+            tool.get("version"),
+        )
+        merged_tools[key] = tool
+
+    for item in st.session_state.saved_tools:
+        key = (item.get("name", ""), item.get("version"))
+        if key not in merged_tools:
+            merged_tools[key] = {
+                **item,
+                "source": "Current session",
+            }
+
+    all_tools = list(merged_tools.values())
+
     filtered = [
-        item for item in saved
-        if query.lower() in (item.get("name", "") + " " + item.get("task", "")).lower()
+        tool for tool in all_tools
+        if query.lower() in (
+            str(tool.get("name", ""))
+            + " "
+            + str(tool.get("description", ""))
+            + " "
+            + str(tool.get("task", ""))
+        ).lower()
     ]
 
+    st.caption(f"{len(filtered)} approved or session tools shown")
+
     if not filtered:
-        st.info(
-            "No tools in this session yet. Generate one from Home or New Task and it will appear here. "
-            "Download any result to keep a local copy."
-        )
+        st.info("No matching tools found. Generate a tool or change your search.")
     else:
-        for index, item in enumerate(filtered):
+        for index, tool in enumerate(filtered):
+            name = tool.get("name", "Unnamed tool")
+            description = tool.get("description", "")
+            version = tool.get("version", "Session")
+            source = tool.get("source", "Backend registry")
+
+            with st.container(border=True):
+                first, second = st.columns(
+                    [4, 1],
+                    vertical_alignment="center",
+                )
+
+                with first:
+                    st.markdown(f"**`{name}`**")
+                    if description:
+                        st.caption(description)
+                    st.caption(f"Version: {version} · Source: {source}")
+
+                with second:
+                    if st.button(
+                        "Open",
+                        key=f"open_library_{index}_{name}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.current_task = description or name
+                        st.session_state.new_task_text = description or name
+                        st.session_state.agent_result = {
+                            "status": "success",
+                            "message": f"Opened {name} from the Tool Library.",
+                            "tool": {
+                                "tool_name": name,
+                                "description": description,
+                                "code": tool.get("code", ""),
+                            },
+                        }
+                        st.session_state.page = "New Task"
+                        st.rerun()
+
+                with st.expander("View source"):
+                    code = tool.get("code", "")
+                    code_path = tool.get("code_path")
+
+                    if not code and code_path:
+                        from pathlib import Path
+
+                        source_path = Path(__file__).resolve().parent / code_path
+                        try:
+                            source_path = source_path.resolve()
+                            generated_root = (
+                                Path(__file__).resolve().parent
+                                / "tools"
+                                / "generated"
+                            ).resolve()
+
+                            if (
+                                source_path.is_relative_to(generated_root)
+                                and source_path.is_file()
+                            ):
+                                code = source_path.read_text(encoding="utf-8")
+                            else:
+                                st.error("Tool source path is invalid.")
+                        except OSError as exc:
+                            st.error(f"Could not read tool source: {exc}")
+
+                    if code:
+                        st.code(code, language="python", line_numbers=True)
+                        st.download_button(
+                            "Download Python file",
+                            data=code,
+                            file_name=f"{name}.py",
+                            mime="text/x-python",
+                            key=f"download_library_{index}_{name}",
+                        )
+                    else:
+                        st.warning("Source code is not available for this entry.")
+
+        else:
+         for index, item in enumerate(filtered):
             with st.container(border=True):
                 first, second = st.columns([4, 1], vertical_alignment="center")
                 with first:

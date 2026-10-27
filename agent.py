@@ -1,11 +1,6 @@
+"""ToolSmith agent: retrieve compatible tools or generate and validate one."""
 
-"""
-ToolSmith Agent
-Coordinates retrieval, generation, validation, and registry storage.
-
-Generated code is validated before it can be saved.
-This agent does not directly execute generated tools.
-"""
+import re
 
 from registry import save_tool
 from retriever import retrieve_tools
@@ -13,10 +8,105 @@ from tool_generator import generate_tool
 from validator import validate_tool
 
 
-def process_task(task: str) -> dict:
-    """Retrieve existing tools or generate, validate, and save a candidate."""
+# Capability phrases are intentionally conservative. Unknown requests should
+# fall back to generation instead of reusing a tool based on similarity alone.
+CAPABILITY_ALIASES = {
+    
+    "numerical_analysis": (
+    "numerical analysis",
+    "analyze numerical data",
+    "analyze numerical dataset",
+    "numerical dataset",
+),
+    "mean": ("mean", "average", "arithmetic mean"),
+    "median": ("median",),
+    "mode": ("mode", "most frequent", "most common"),
+    "addition": ("addition", "add", "sum", "plus", "add two numbers"),
+    "subtraction": ("subtraction", "subtract", "difference", "minus"),
+    "multiplication": ("multiplication", "multiply", "product", "times"),
+    "division": ("division", "divide", "quotient"),
+    "sorting": ("sort", "sorting", "ascending order", "descending order"),
+    "deduplication": (
+        "deduplicate", "deduplication", "remove duplicates",
+        "duplicate removal", "unique rows",
+    ),
+    "slug_generation": (
+        "slugify", "slug generation", "url-friendly slug",
+        "url friendly slug",
+    ),
+    "celsius_fahrenheit": (
+        "celsius to fahrenheit", "fahrenheit to celsius",
+        "convert celsius", "convert fahrenheit",
+    ),
+}
 
-    # 1. Validate the user's task.
+
+def _normalize(text: str) -> str:
+    text = text.lower().replace("_", " ")
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    normalized_text = f" {_normalize(text)} "
+    normalized_phrase = f" {_normalize(phrase)} "
+    return normalized_phrase in normalized_text
+
+
+def _requested_capabilities(task: str) -> set[str]:
+    requested = set()
+    for capability, aliases in CAPABILITY_ALIASES.items():
+        if any(_contains_phrase(task, alias) for alias in aliases):
+            requested.add(capability)
+    return requested
+
+
+def _tool_metadata_text(tool: dict) -> str:
+    parts = [
+        str(tool.get("name", "")),
+        str(tool.get("description", "")),
+    ]
+
+    for key in ("capabilities", "input_schema", "output_schema"):
+        value = tool.get(key, "")
+        if isinstance(value, (dict, list, tuple)):
+            parts.append(str(value))
+        else:
+            parts.append(str(value))
+
+    return " ".join(parts)
+
+
+def _is_compatible(task: str, tool: dict) -> tuple[bool, str]:
+    """Conservative phrase-based compatibility gate for known capabilities."""
+    if not isinstance(tool, dict):
+        return False, "Invalid tool record."
+
+    requested = _requested_capabilities(task)
+    if not requested:
+        return (
+            False,
+            "Required capabilities are not recognized by the current "
+            "compatibility rules.",
+        )
+
+    metadata = _tool_metadata_text(tool)
+    missing = [
+        capability
+        for capability in sorted(requested)
+        if not any(
+            _contains_phrase(metadata, alias)
+            for alias in CAPABILITY_ALIASES[capability]
+        )
+    ]
+
+    if missing:
+        return False, "Missing capability: " + ", ".join(missing)
+
+    return True, "Tool metadata covers all recognized requested capabilities."
+
+
+def process_task(task: str) -> dict:
+    """Reuse a compatible approved tool, otherwise generate and validate."""
     if not isinstance(task, str) or not task.strip():
         return {
             "status": "failed",
@@ -27,36 +117,61 @@ def process_task(task: str) -> dict:
     task = task.strip()
     retrieval_warning = None
 
-    # 2. Search for approved tools using semantic retrieval.
     try:
-        existing_tools = retrieve_tools(task, top_k=3)
+        candidates = retrieve_tools(task, top_k=3)
     except Exception as exc:
-        existing_tools = []
+        candidates = []
         retrieval_warning = (
             f"Retrieval unavailable: {type(exc).__name__}: {exc}"
         )
 
-    # Return suggestions for review rather than assuming similarity
-    # guarantees that a tool is compatible with the requested task.
-    if existing_tools:
+    compatible_tools = []
+    rejected_tools = []
+
+    for tool in candidates:
+        compatible, reason = _is_compatible(task, tool)
+        if compatible:
+            matched = dict(tool)
+            matched["compatibility_reason"] = reason
+            compatible_tools.append(matched)
+        else:
+            rejected_tools.append(
+                {
+                    "name": tool.get("name", "Unknown"),
+                    "similarity_score": tool.get("similarity_score"),
+                    "reason": reason,
+                }
+            )
+
+    if compatible_tools:
         return {
             "status": "existing_tools_found",
-            "tools": existing_tools,
+            "tools": compatible_tools,
             "message": (
-                "Approved tool candidates found. Review their "
-                "functionality and input/output requirements before reuse."
+                "Compatible approved tool candidates found. Review the "
+                "tool's schema before execution."
             ),
+            "rejected_tools": rejected_tools,
             "retrieval_warning": retrieval_warning,
         }
 
-    # 3. Generate a candidate.
-    candidate = generate_tool(task)
+    try:
+        candidate = generate_tool(task)
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "stage": "generation",
+            "error": f"Tool generation failed: {type(exc).__name__}: {exc}",
+            "rejected_tools": rejected_tools,
+            "retrieval_warning": retrieval_warning,
+        }
 
     if not isinstance(candidate, dict):
         return {
             "status": "failed",
             "stage": "generation",
             "error": "Generator returned an invalid response.",
+            "rejected_tools": rejected_tools,
             "retrieval_warning": retrieval_warning,
         }
 
@@ -65,14 +180,12 @@ def process_task(task: str) -> dict:
             "status": "failed",
             "stage": "generation",
             "error": candidate.get("error", "Tool generation failed."),
+            "candidate": candidate,
+            "rejected_tools": rejected_tools,
             "retrieval_warning": retrieval_warning,
         }
 
-    # 4. Validate the generated code and its test cases.
-    validation = validate_tool(
-        candidate.get("code"),
-        candidate.get("tests"),
-    )
+    validation = validate_tool(candidate.get("code"), candidate.get("tests"))
 
     if (
         not isinstance(validation, dict)
@@ -85,10 +198,10 @@ def process_task(task: str) -> dict:
             "candidate": candidate,
             "validation": validation,
             "message": "Validation failed. Candidate was not saved.",
+            "rejected_tools": rejected_tools,
             "retrieval_warning": retrieval_warning,
         }
 
-    # 5. Save only after successful validation.
     save_result = save_tool(candidate, validation)
 
     if (
@@ -100,26 +213,25 @@ def process_task(task: str) -> dict:
             "stage": "save",
             "candidate": candidate,
             "validation": validation,
-            "save_result": save_result,
+            "saved": save_result,
             "message": "Validation passed, but saving failed.",
+            "rejected_tools": rejected_tools,
             "retrieval_warning": retrieval_warning,
         }
 
-    # 6. Return the complete result.
     return {
         "status": "success",
         "message": "Tool generated, validated, and saved successfully.",
         "tool": candidate,
         "validation": validation,
         "saved": save_result,
+        "rejected_tools": rejected_tools,
         "retrieval_warning": retrieval_warning,
     }
 
 
 def main() -> None:
-    """Run the interactive command-line interface."""
-
-    task = input("What tool do you want to create? ").strip()
+    task = input("What tool do you need? ").strip()
     result = process_task(task)
 
     print(f"\nStatus: {result.get('status', 'unknown')}")
@@ -128,35 +240,30 @@ def main() -> None:
     if result.get("retrieval_warning"):
         print("\nRetrieval warning:", result["retrieval_warning"])
 
-    # Show existing tools returned by semantic retrieval.
     for tool in result.get("tools", []):
-        print(f"\nTool: {tool.get('name', 'Unknown')}")
+        print(f"\nCompatible tool: {tool.get('name', 'Unknown')}")
         print("Description:", tool.get("description", ""))
         print("Similarity:", tool.get("similarity_score"))
+        print("Reason:", tool.get("compatibility_reason", ""))
 
-    # Show generated tool details.
+    for tool in result.get("rejected_tools", []):
+        print(f"\nRejected tool: {tool.get('name', 'Unknown')}")
+        print("Reason:", tool.get("reason", ""))
+
     candidate = result.get("candidate") or result.get("tool")
-
     if candidate:
-        print("\nGenerated tool:", candidate.get("tool_name"))
+        print(
+            "\nCandidate:",
+            candidate.get("tool_name", candidate.get("name", "Unknown")),
+        )
         print("Description:", candidate.get("description", ""))
-
-    # Print generated source when validation fails, to help debug it.
-    if result.get("status") == "validation_failed" and candidate:
-        print("\n--- Generated source code ---")
-        print(candidate.get("code", "No generated code available."))
-        print("--- End generated source code ---")
 
     if result.get("validation") is not None:
         print("\nValidation result:")
         print(result["validation"])
 
-    if result.get("save_result") is not None:
-        print("\nSave result:")
-        print(result["save_result"])
-
     if result.get("saved") is not None:
-        print("\nSaved tool details:")
+        print("\nRegistry result:")
         print(result["saved"])
 
 
