@@ -19,6 +19,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import streamlit as st
@@ -36,18 +39,33 @@ EXAMPLES = [
     "Turn a title into a URL-friendly slug",
 ]
 
-st.set_page_config(page_title="ToolSmith", page_icon="🔧", layout="centered")
+st.set_page_config(page_title="ToolSmith 0.1 · Forge", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
-st.markdown(
-    """
-    <style>
-      #MainMenu, footer {visibility: hidden;}
-      .block-container {max-width: 820px; padding-top: 2rem;}
-      div.stButton > button {border-radius: 8px;}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+html,body,[class*="css"] {font-family:'Inter',sans-serif;}
+.stApp {background:radial-gradient(ellipse at 88% 0%,#20163b 0%,transparent 37%),radial-gradient(ellipse at 2% 85%,#101d32 0%,transparent 45%),#090d17;color:#edf0fc;}
+[data-testid="stSidebar"] {background:#0c1120;border-right:1px solid #252b40;}
+.block-container {max-width:1330px;padding-top:2rem;padding-bottom:3rem;}
+h1,h2,h3 {letter-spacing:-.035em;}
+.hero {padding:38px 40px;border:1px solid #35304f;border-radius:23px;background:linear-gradient(115deg,#1a1733,#101b31 68%,#101521);margin:8px 0 25px;box-shadow:0 14px 50px #0004;}
+.hero-kicker {color:#b7a2ff;font-size:12px;letter-spacing:2px;font-weight:800;margin-bottom:13px;}
+.hero-title {font-size:clamp(32px,4vw,55px);line-height:1.08;font-weight:800;color:#fff;margin-bottom:15px;}
+.hero-title span {background:linear-gradient(95deg,#c3a5ff,#77dcff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero-sub {color:#aeb7ce;font-size:15px;max-width:780px;line-height:1.8;}
+.metric {border:1px solid #303650;border-radius:16px;padding:20px 22px;background:#141b2b;margin-bottom:12px;}
+.metric-value {font-size:29px;font-weight:800;color:#c7b6ff;}
+.metric-label {font-size:12px;color:#98a5bd;margin-top:5px;}
+.section-kicker {color:#b7a2ff;font-size:12px;letter-spacing:1.4px;font-weight:800;margin-bottom:8px;}
+[data-testid="stButton"] button {border-radius:10px;font-weight:650;border-color:#343c57;}
+[data-testid="stButton"] button[kind="primary"] {background:linear-gradient(95deg,#7756e8,#9e60ef);border:0;color:white;}
+[data-testid="stTextArea"] textarea,[data-testid="stTextInput"] input {background:#101829;border:1px solid #303a56;border-radius:11px;color:#eff2ff;}
+[data-testid="stExpander"] {border:1px solid #2d354e;border-radius:13px;background:#111727;}
+[data-testid="stTabs"] button {font-weight:700;}
+pre,code {font-family:'JetBrains Mono',monospace!important;}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Session state
@@ -75,26 +93,8 @@ def get_demo_input(tool: dict) -> tuple[str, str]:
             literal_demo = str(test_in)
         return json_demo, literal_demo
 
-    name = str(tool.get("name") or tool.get("tool_name") or "").lower()
     schema = tool.get("input_schema") or {}
     props = schema.get("properties", {}) if isinstance(schema, dict) else {}
-
-    if "number" in name or "sum" in name or "add" in name:
-        if "a" in props and "b" in props:
-            return '{"a": 10, "b": 25}', "[10, 25]"
-        return '{"a": 5, "b": 15}', "[5, 15]"
-    if "deviation" in name or "stat" in name or "mean" in name or "average" in name:
-        return '{"numbers": [10, 20, 30, 40, 50]}', "[10, 20, 30, 40, 50]"
-    if "duplicate" in name or "dedupe" in name or "search" in name:
-        return '{"ids": [1, 2, 2, 3, 4, 4, 5]}', "[1, 2, 2, 3, 4, 4, 5]"
-    if "sort" in name:
-        return '{"list": [64, 34, 25, 12, 22, 11, 90]}', "[64, 34, 25, 12, 22, 11, 90]"
-    if "celsius" in name or "temperature" in name:
-        return '{"celsius": 25}', "25"
-    if "csv" in name or "clean" in name or "row" in name:
-        return '{"csv_content": "name, age\\nAlice, 30\\n, \\nBob, 25"}', '"name, age\\nAlice, 30\\n, \\nBob, 25"'
-    if "slug" in name or "title" in name or "url" in name or "text" in name:
-        return '{"title": "ToolSmith Hackathon Project!"}', '"ToolSmith Hackathon Project!"'
 
     if props:
         sample = {}
@@ -112,7 +112,7 @@ def get_demo_input(tool: dict) -> tuple[str, str]:
                 literal_sample.append("sample_value")
         return json.dumps(sample), str(literal_sample if len(literal_sample) > 1 else (literal_sample[0] if literal_sample else "sample"))
 
-    return '{"a": 10, "b": 20}', "[10, 20]"
+    return "{}", "{}"
 
 
 def short_key(text: str) -> str:
@@ -194,6 +194,117 @@ def load_library() -> tuple[list[dict], str | None]:
 
     library.sort(key=lambda t: str(t.get("created_at", "")), reverse=True)
     return library, None
+
+
+def delete_registered_tool(tool_name: str) -> tuple[bool, str]:
+    """Delete every registered version and its generated source files.
+
+    Files outside tools/generated are never touched. Registry and source files
+    are restored if a deletion step fails.
+    """
+    registry_path = BASE_DIR / "tool_registry" / "registry.json"
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+        tools = data.get("tools")
+        if not isinstance(tools, dict) or tool_name not in tools:
+            return False, "Tool not found in the registry."
+        versions = tools[tool_name]
+        if not isinstance(versions, list):
+            return False, "Invalid registry entries for this tool."
+
+        paths = set()
+        for record in versions:
+            if not isinstance(record, dict):
+                return False, "Invalid tool version record; nothing deleted."
+            code_path = record.get("code_path")
+            if not isinstance(code_path, str) or not code_path.strip():
+                return False, "A version has no code_path; nothing deleted."
+            path = (BASE_DIR / code_path).resolve()
+            if not path.is_relative_to(GENERATED_ROOT) or path == GENERATED_ROOT or path.suffix != ".py":
+                return False, "Unsafe generated-code path; nothing deleted."
+            paths.add(path)
+
+        # Never remove a file still referenced by another registered tool.
+        for other_name, other_versions in tools.items():
+            if other_name == tool_name or not isinstance(other_versions, list):
+                continue
+            for record in other_versions:
+                if isinstance(record, dict) and isinstance(record.get("code_path"), str):
+                    other_path = (BASE_DIR / record["code_path"]).resolve()
+                    if other_path in paths:
+                        return False, "A source file is shared with another tool; nothing deleted."
+
+        # Stage source files for rollback before changing the registry.
+        with tempfile.TemporaryDirectory(prefix="toolsmith-delete-") as temp:
+            staged = []
+            temp_dir = Path(temp)
+            try:
+                for index, path in enumerate(sorted(paths)):
+                    if path.exists():
+                        if not path.is_file():
+                            raise ValueError(f"Not a regular source file: {path}")
+                        backup = temp_dir / f"{index}.py"
+                        shutil.move(str(path), str(backup))
+                        staged.append((path, backup))
+
+                updated = dict(data)
+                updated["tools"] = dict(tools)
+                del updated["tools"][tool_name]
+                # Atomic replacement of registry; keep original if writing fails.
+                fd, tmp_name = tempfile.mkstemp(prefix=".registry-", suffix=".json", dir=registry_path.parent)
+                try:
+                    with os.fdopen(fd, "w", encoding="utf-8") as output:
+                        json.dump(updated, output, indent=2, ensure_ascii=False)
+                        output.write("\n")
+                    os.replace(tmp_name, registry_path)
+                finally:
+                    if os.path.exists(tmp_name):
+                        os.unlink(tmp_name)
+            except Exception:
+                for original, backup in reversed(staged):
+                    original.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(backup), str(original))
+                raise
+
+        # Clean up only empty directories, never unrelated files.
+        for path in paths:
+            parent = path.parent
+            while parent != GENERATED_ROOT and parent.is_relative_to(GENERATED_ROOT):
+                try:
+                    parent.rmdir()
+                except OSError:
+                    break
+                parent = parent.parent
+        return True, f"Deleted {tool_name} from the registry and removed its registered source files."
+    except Exception as exc:
+        return False, f"Deletion failed: {type(exc).__name__}: {exc}"
+
+
+def render_delete_button(tool: dict) -> None:
+    """Per-tool deletion with explicit confirmation in the Library tab."""
+    name = str(tool.get("name") or tool.get("tool_name") or "")
+    key = short_key(name)
+    confirm_key = f"confirm_delete_{key}"
+    if st.button("🗑️ Delete", key=f"delete_{key}", type="secondary"):
+        st.session_state[confirm_key] = True
+
+    if st.session_state.get(confirm_key):
+        st.warning(f"Delete **{name}** and ALL its registered versions? This cannot be undone from the UI.")
+        yes, no = st.columns(2)
+        with yes:
+            if st.button("Yes, delete permanently", key=f"yes_delete_{key}", type="primary"):
+                success, message = delete_registered_tool(name)
+                st.session_state[confirm_key] = False
+                if success:
+                    st.session_state.result = None  # Avoid showing stale generated results.
+                    st.session_state["delete_notice"] = message
+                    st.rerun()
+                else:
+                    st.error(message)
+        with no:
+            if st.button("Cancel", key=f"cancel_delete_{key}"):
+                st.session_state[confirm_key] = False
+                st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -506,71 +617,116 @@ def render_result(result: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Layout
+# ToolSmith 0.1 — redesigned workbench and library
 # ---------------------------------------------------------------------------
-st.title("ToolSmith")
-st.caption(
-    "Describe a task. ToolSmith reuses an approved tool or builds and tests a new one."
-)
 
-create_tab, library_tab = st.tabs(["Create", "Library"])
+with st.sidebar:
+    st.markdown("## ⚡ TOOLSMITH")
+    st.caption("VERSION 0.1 · AI TOOL FORGE")
+    st.divider()
+    st.markdown("**● Agent workbench**")
+    st.caption("Natural language → semantic retrieval → LLM generation → validation → execution")
+    st.divider()
+    st.markdown("**ENGINE MODULES**")
+    st.caption("🧠  Agent · LLM generation")
+    st.caption("🔎  Semantic retrieval")
+    st.caption("🛡️  Code validation")
+    st.caption("▶️  Tool executor")
+    st.caption("🗂️  Versioned registry")
+    st.divider()
+    st.info("This UI uses your existing ToolSmith backend. It does not use a hardcoded tool catalog.")
 
-with create_tab:
+st.markdown("""<div class="hero">
+  <div class="hero-kicker">✦ THE AI TOOL FORGE · VERSION 0.1</div>
+  <div class="hero-title">Don't just solve it.<br><span>Build the tool.</span></div>
+  <div class="hero-sub">Describe a task in everyday language. ToolSmith searches for reusable tools, generates new Python tools with an LLM when needed, validates them, and saves approved versions to your library.</div>
+</div>""", unsafe_allow_html=True)
+
+library_snapshot, library_snapshot_error = load_library()
+col_a, col_b, col_c = st.columns(3)
+with col_a:
+    st.markdown(f'<div class="metric"><div class="metric-value">{len(library_snapshot)}</div><div class="metric-label">APPROVED TOOLS IN LIBRARY</div></div>', unsafe_allow_html=True)
+with col_b:
+    st.markdown('<div class="metric"><div class="metric-value">LLM</div><div class="metric-label">DYNAMIC TOOL GENERATION</div></div>', unsafe_allow_html=True)
+with col_c:
+    st.markdown('<div class="metric"><div class="metric-value">REUSE</div><div class="metric-label">SEMANTIC TOOL RETRIEVAL</div></div>', unsafe_allow_html=True)
+
+workbench_tab, library_tab, studio_tab = st.tabs(["⚡ Workbench", "🗂️ Tool Library", "⌘ Code Studio"])
+
+with workbench_tab:
+    st.markdown('<div class="section-kicker">01 / CREATE SOMETHING NEW</div>', unsafe_allow_html=True)
+    st.subheader("What should your tool do?")
+    st.caption("Write a specific task. Examples below are prompt suggestions, not prebuilt tools.")
     st.text_area(
-        "What should the tool do?",
+        "Tool request",
         key="task_input",
-        height=110,
+        height=145,
         max_chars=MAX_TASK_CHARS,
-        placeholder="Example: Add two numbers",
+        placeholder="Create a Python tool that sorts a list of numbers in ascending order and returns the sorted list...",
+        label_visibility="collapsed",
     )
-
     example_cols = st.columns(len(EXAMPLES))
-    for col, text in zip(example_cols, EXAMPLES):
-        col.button(
-            text,
-            on_click=use_example,
-            args=(text,),
-            key=f"ex_{short_key(text)}",
-        )
+    for col, example in zip(example_cols, EXAMPLES):
+        col.button(example, on_click=use_example, args=(example,), key=f"ex_{short_key(example)}", use_container_width=True)
 
-    generate_clicked = st.button("Generate tool", type="primary")
+    generate_clicked = st.button("✦ Forge Tool", type="primary", use_container_width=True)
     retry_requested = st.session_state.pop("pending_run", False)
-
     if generate_clicked or retry_requested:
         run_agent(st.session_state.task_input)
-
     if st.session_state.result:
         st.divider()
+        st.markdown('<div class="section-kicker">02 / AGENT RESPONSE</div>', unsafe_allow_html=True)
         render_result(st.session_state.result)
+    else:
+        st.info("Your agent's generation and validation results will appear here.")
 
 with library_tab:
+    st.markdown('<div class="section-kicker">SAVED & VALIDATED</div>', unsafe_allow_html=True)
+    st.subheader("Tool Library")
     library, library_error = load_library()
-
     if library_error:
         st.error(library_error)
-
-    query = st.text_input(
-        "Search tools",
-        placeholder="Search by name or description",
-        key="library_search",
-    )
+    query = st.text_input("Search library", placeholder="Search by tool name or description", key="library_search")
     q = query.strip().lower()
-
-    shown = [
-        tool
-        for tool in library
-        if not q
-        or q in f"{tool.get('name', '')} {tool.get('description', '')}".lower()
-    ]
-
-    st.caption(f"{len(shown)} approved tool(s)")
-
+    shown = [tool for tool in library if not q or q in f"{tool.get('name', '')} {tool.get('description', '')}".lower()]
+    st.caption(f"{len(shown)} approved tool(s) · Run, inspect, download or delete")
     if not shown and not library_error:
-        st.info("No tools yet. Generate one in the Create tab.")
-
+        st.info("No matching approved tools yet. Generate one in the Workbench.")
+    if st.session_state.get("delete_notice"):
+        st.success(st.session_state.pop("delete_notice"))
     for tool in shown:
-        render_tool(tool, prefix="lib", runnable=True, compact=True)
+        with st.container(border=True):
+            title_col, delete_col = st.columns([5, 1], vertical_alignment="center")
+            with title_col:
+                st.markdown(f"#### ⚙️ `{tool_label(tool)}`")
+                st.caption(f"Version {tool.get('version', 1)} · {tool.get('description', '')}")
+            with delete_col:
+                render_delete_button(tool)
+            with st.expander("Open tool · Execute / Source / Download", expanded=False):
+                _render_tool_contents(tool, prefix="lib", runnable=True)
 
-st.caption(
-    "Generated code is tested, not guaranteed safe. Review it before using it."
-)
+with studio_tab:
+    st.markdown('<div class="section-kicker">UNDER THE HOOD</div>', unsafe_allow_html=True)
+    st.subheader("Code Studio")
+    st.caption("Inspect source code from your approved, registered tools.")
+    studio_library, studio_error = load_library()
+    if studio_error:
+        st.error(studio_error)
+    elif not studio_library:
+        st.info("Generate a tool first to view its Python source.")
+    else:
+        choices = {f"{tool_label(t)} · v{t.get('version', 1)}": t for t in studio_library}
+        selected_label = st.selectbox("Choose a tool", list(choices))
+        selected = choices[selected_label]
+        st.markdown(f"**{selected.get('description', '')}**")
+        code = load_code(selected)
+        if code:
+            st.code(code, language="python", line_numbers=True)
+            st.download_button("↓ Download Python source", code, file_name=f"{tool_label(selected)}.py", mime="text/x-python", key="studio_download")
+        else:
+            st.warning("No generated source file found for this tool.")
+        with st.expander("Tool metadata"):
+            st.json({k: v for k, v in selected.items() if k != "code"})
+
+st.divider()
+st.caption("TOOLSMITH 0.1 · LLM + semantic retrieval + validation · Generated code is not guaranteed safe; review before executing.")
