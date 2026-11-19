@@ -1,4 +1,3 @@
-
 import os
 from functools import lru_cache
 
@@ -44,7 +43,7 @@ def generate_with_groq(
     prompt: str,
     model: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 4096,
+    max_tokens: int = 8192,
 ) -> str:
     """
     Send a prompt to Groq and return the generated text.

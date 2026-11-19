@@ -119,10 +119,17 @@ def run_test_case(code: str, test_case: dict, timeout: int = 5) -> dict:
     runner = r'''
 import json
 import sys
+import ast
 
-payload = json.loads(sys.stdin.read())
-code = payload["code"]
-test_case = payload["test_case"]
+payload = sys.stdin.read()
+try:
+    data = json.loads(payload)
+except (json.JSONDecodeError, ValueError):
+    # Try as Python literal
+    data = ast.literal_eval(payload)
+
+code = data["code"]
+test_case = data["test_case"]
 
 namespace = {"__name__": "generated_tool"}
 exec(compile(code, "<generated_tool>", "exec"), namespace)
@@ -131,7 +138,14 @@ run = namespace.get("run")
 if not callable(run):
     raise ValueError("Generated code must define a callable run() function.")
 
-result = run(test_case["input"])
+# Handle flexible input: dict or list
+test_input = test_case["input"]
+if isinstance(test_input, dict):
+    result = run(test_input)
+elif isinstance(test_input, (list, tuple)):
+    result = run(test_input[0] if len(test_input) > 0 else {})
+else:
+    result = run(test_input)
 
 if not isinstance(result, dict):
     raise TypeError("run() must return a dictionary.")

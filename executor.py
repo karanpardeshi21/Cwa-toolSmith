@@ -15,7 +15,7 @@ MAX_TIMEOUT = 10
 
 def execute_tool(
     name: str,
-    input_data: dict,
+    input_data: dict | list | str | int | float | bool,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict:
     """Execute the latest approved version of a registered tool."""
@@ -28,11 +28,11 @@ def execute_tool(
             "error": "Tool name must be a non-empty string.",
         }
 
-    if not isinstance(input_data, dict):
+    if not isinstance(input_data, (dict, list, str, int, float, bool)):
         return {
             "status": "failed",
             "stage": "input",
-            "error": "input_data must be a dictionary.",
+            "error": "input_data must be a dictionary, list, string, or number.",
         }
 
     if (
@@ -59,6 +59,43 @@ def execute_tool(
             "stage": "lookup",
             "error": f"No approved tool found with name '{tool_name}'.",
         }
+
+    # Normalize input_data
+    schema = tool.get("input_schema", {})
+    props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+    required = schema.get("required", []) if isinstance(schema, dict) else []
+
+    if not isinstance(input_data, dict):
+        target_key = required[0] if required else (list(props.keys())[0] if props else "input")
+        prop_spec = props.get(target_key, {}) if isinstance(props, dict) else {}
+
+        if prop_spec.get("type") == "array" and isinstance(input_data, str):
+            # Parse CSV/text into list of items
+            items = []
+            for line in input_data.splitlines():
+                line = line.strip()
+                if line:
+                    if "," in line:
+                        items.extend([x.strip() for x in line.split(",") if x.strip()])
+                    else:
+                        items.append(line)
+            input_data = {target_key: items}
+        else:
+            input_data = {target_key: input_data}
+    else:
+        # Check for string values that should be arrays
+        for k, v in list(input_data.items()):
+            prop_spec = props.get(k, {}) if isinstance(props, dict) else {}
+            if prop_spec.get("type") == "array" and isinstance(v, str):
+                items = []
+                for line in v.splitlines():
+                    line = line.strip()
+                    if line:
+                        if "," in line:
+                            items.extend([x.strip() for x in line.split(",") if x.strip()])
+                        else:
+                            items.append(line)
+                input_data[k] = items
 
     # 3. Verify source path is inside tools/generated.
     code_path_value = tool.get("code_path")
@@ -95,6 +132,7 @@ def execute_tool(
     runner = r'''
 import json
 import sys
+import ast
 
 source_path = sys.argv[1]
 
@@ -109,7 +147,14 @@ try:
     if not callable(run):
         raise ValueError("Tool must define a callable run(input_data).")
 
-    input_data = json.load(sys.stdin)
+    # Try to parse input as JSON first, then as Python literal
+    raw_input = sys.stdin.read()
+    try:
+        input_data = json.loads(raw_input)
+    except (json.JSONDecodeError, ValueError):
+        # Try as a Python literal (list, tuple, etc.)
+        input_data = ast.literal_eval(raw_input.strip())
+
     result = run(input_data)
 
     if not isinstance(result, dict):
@@ -137,6 +182,7 @@ if response["status"] != "success":
 '''
 
     # 5. Run with a bounded timeout and output size.
+    # Pass raw input string so the runner can try JSON first, then Python literal
     try:
         process = subprocess.run(
             [

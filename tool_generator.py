@@ -1,4 +1,3 @@
-
 import json
 import re
 from datetime import datetime, timezone
@@ -20,7 +19,13 @@ def _make_tool_name(task: str) -> str:
     keywords = [word for word in words if word not in stop_words]
     name = "_".join(keywords[:4])
 
-    return f"{name or 'generated'}_tool"
+    # Registry names must start with a letter.
+    if not name:
+        name = "generated"
+    elif not name[0].isalpha():
+        name = f"tool_{name}"
+
+    return f"{name}_tool"[:64]
 
 
 def _build_prompt(task: str) -> str:
@@ -60,6 +65,12 @@ Requirements:
 """.strip()
 
 
+def _strip_fences(text: str) -> str:
+    """Remove a surrounding Markdown code fence, if the model added one."""
+    match = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text.strip(), re.DOTALL)
+    return match.group(1) if match else text.strip()
+
+
 def generate_tool(
     task: str,
     llm_generate: Callable[[str], Any] = generate_with_groq,
@@ -91,9 +102,12 @@ def generate_tool(
             candidate = response
         elif isinstance(response, str):
             # Accept plain JSON only; do not execute model output.
-            candidate = json.loads(response)
+            candidate = json.loads(_strip_fences(response))
         else:
             raise ValueError("LLM response must be a JSON string or dictionary.")
+
+        if not isinstance(candidate, dict):
+            raise ValueError("LLM response must be a JSON object.")
 
         required = {
             "description",
